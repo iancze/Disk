@@ -34,16 +34,18 @@ def test_delta_0():
 def test_plot():
     fig = plt.figure(figsize=(8,4))
     ax = fig.add_subplot(111)
-    coord1 = g.StartingCoords(1.0,1.0,0.0)
-    print(coord1)
-    coord1.graph_on_ax(ax)
+    orn1 = g.Orientation(1.0)
+    los1 = g.LineOfSight(orn1,1.0,0.0)
+    print(orn1)
+    print(los1)
+    los1.graph_on_ax(ax)
     fig.savefig("test_plot.png")
 
 
 def main():
     #test_delta_0()
     #test_delta()
-    #test_plot()
+    test_plot()
     pass
 
 if __name__=="__main__":

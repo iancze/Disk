@@ -70,7 +70,7 @@ class LineOfSight:
         ax.set_xlabel("y")
         ax.set_ylabel("z")
         ys = np.linspace(-6.0,6.0)
-        ax.plot(ys,self.center_line()(ys))
+        ax.plot(ys,self.orn.center_line()(ys))
         #ax.plot(ys,self.line_through_point(
         ax.plot(self.y0,self.z0,"bo")
         return
