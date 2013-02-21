@@ -45,20 +45,28 @@ def test_line_of_sight_w_theta():
         #print(i)
     fig.savefig("Plots/Test_Theta/test_plot{theta:.0f}.png".format(theta=(orn1.theta*180./np.pi)))
 
-def test_path_length():
+def test_path_length(deg):
     fig = plt.figure(figsize=(8,4))
     ax = fig.add_subplot(111)
-    deg = 50.0
+    #deg = 50.0
     orn1 = g.Orientation(deg * np.pi/180.)
     orn1.graph_on_ax(ax)
-    print(orn1)
-    fig.savefig("Plots/Test_Path_Length/path_length.png")
+    delta_array = np.linspace(-1*orn1.delta_limit, orn1.delta_limit,num=20)
+    los_array = [g.LineOfSight(orn1, i, 0.0) for i in delta_array]
+    for i in los_array:
+        i.graph_on_ax(ax)
+        i.plot_path(ax)
+        print(i)
+        i.check_total_path_length()
+    fig.savefig("Plots/Test_Path_Length/path_length{theta:.0f}.png".format(theta=(orn1.theta*180./np.pi)))
 
 
 def main():
     #test_delta_0()
     #test_delta()
     #test_plot()
+    for deg in np.linspace(0.01,89.99,num=10):
+        test_path_length(deg)
     pass
 
 if __name__=="__main__":

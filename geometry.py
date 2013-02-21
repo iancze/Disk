@@ -56,35 +56,66 @@ class LineOfSight:
         self.alpha = alpha
         self.delta = delta
         self.x0 = self.alpha
+        self.xf = self.x0
         self.calc_y0_z0()
-        self.pos()
         pass
 
     def calc_y0_z0(self):
+        '''Given the inital geometry via the Orientation object, calculate y0, z0, yf, zf, and s_finish.'''
         if self.delta > self.orn.delta_c:
             self.z0 = w
             self.y0 = w * np.tan(self.orn.theta) - self.delta/np.cos(self.orn.theta)
-            self.s_finish = 2.0*w/np.cos(self.orn.theta)
+            #k2 is the critical length, see pg 15, 2/21/13
+            k2 = (self.y0 + l)/np.tan(self.orn.theta)
+            if k2 > 2. * w:
+                self.zf = -w
+                self.yf = self.y0 - 2 * w * np.tan(self.orn.theta)
+            else:
+                self.zf = self.z0 - k2
+                self.yf = -l
         else:
             self.y0 = l
             self.z0 = self.delta/np.sin(self.orn.theta) + l/np.tan(self.orn.theta)
-            self.s_finish = 2.0*l/np.sin(self.orn.theta)
+            k2 = (self.z0 + w) * np.tan(self.orn.theta)
+            if k2 > 2. * l:
+                self.yf = -l
+                self.zf = self.z0 - 2. * l/np.tan(self.orn.theta)
+            else:
+                self.yf = self.y0 - k2
+                self.zf = -w
+        self.s_finish = (self.y0 - self.yf)/np.sin(self.orn.theta)
 
     def pos(self,s):
-        x = self.x0
+        x = self.x0 * np.ones_like(s)
         y = self.y0 - s * np.sin(self.orn.theta)
         z = self.z0 - s * np.cos(self.orn.theta)
         return np.array([x,y,z])
 
-    def graph_on_ax(self,ax,color="b"):
+    def plot_path(self,ax,fmt="bo"):
+        ss = np.linspace(0,self.s_finish,num=10)
+        pos_array = self.pos(ss)
+        ys = pos_array[1,:]
+        zs = pos_array[2,:]
+        #print(ys)
+        #print(zs)
+        ax.plot(ys,zs,"bo")
+        return
+
+    def graph_on_ax(self,ax,fmt="b"):
         '''ax is a matplotlib axes object.'''
         ys = np.linspace(-6.0,6.0)
         ax.plot(self.y0,self.z0,"bo")
-        ax.plot(ys,self.orn.line_through_point((self.y0,self.z0))(ys),color)
+        ax.plot(ys,self.orn.line_through_point((self.y0,self.z0))(ys),fmt)
         return
+
+    def check_total_path_length(self):
+        distance = np.sqrt((self.yf - self.y0)**2 + (self.zf - self.z0)**2)
+        print("Distance={distance:.2f} ; s_finish={s_finish:.2f}".format(distance=distance,s_finish=self.s_finish))
 
     def __str__(self):
         return """
         alpha = {alpha:.2f}
         delta = {delta:.2f}
-        x0 = {x0:.2f}; y0 = {y0:.2f}; z0 = {z0:.2f}""".format(alpha=self.alpha,delta=self.delta,x0=self.x0,y0=self.y0,z0=self.z0)
+        x0 = {x0:.2f}; y0 = {y0:.2f}; z0 = {z0:.2f}
+        xf = {xf:.2f}; yf = {yf:.2f}; zf = {zf:.2f}""".format(alpha=self.alpha,delta=self.delta,x0=self.x0,y0=self.y0,z0=self.z0,xf=self.xf,yf=self.yf,zf=self.zf)
+
