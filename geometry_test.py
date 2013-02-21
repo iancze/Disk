@@ -31,21 +31,34 @@ def test_delta_0():
     print(los4)
 
 
-def test_plot():
+def test_line_of_sight_w_theta():
     fig = plt.figure(figsize=(8,4))
     ax = fig.add_subplot(111)
-    orn1 = g.Orientation(1.0)
-    los1 = g.LineOfSight(orn1,1.0,0.0)
+    deg = 89.999
+    orn1 = g.Orientation(deg * np.pi/180.)
+    delta_array = np.linspace(-1*orn1.delta_limit, orn1.delta_limit,num=20)
+    los_array = [g.LineOfSight(orn1, i, 0.0) for i in delta_array]
+    orn1.graph_on_ax(ax)
     print(orn1)
-    print(los1)
-    los1.graph_on_ax(ax)
-    fig.savefig("test_plot.png")
+    for i in los_array:
+        i.graph_on_ax(ax)
+        #print(i)
+    fig.savefig("Plots/Test_Theta/test_plot{theta:.0f}.png".format(theta=(orn1.theta*180./np.pi)))
+
+def test_path_length():
+    fig = plt.figure(figsize=(8,4))
+    ax = fig.add_subplot(111)
+    deg = 50.0
+    orn1 = g.Orientation(deg * np.pi/180.)
+    orn1.graph_on_ax(ax)
+    print(orn1)
+    fig.savefig("Plots/Test_Path_Length/path_length.png")
 
 
 def main():
     #test_delta_0()
     #test_delta()
-    test_plot()
+    #test_plot()
     pass
 
 if __name__=="__main__":

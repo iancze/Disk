@@ -29,6 +29,18 @@ class Orientation:
         intercept = z0 - self.slope * y0
         return lambda y: self.slope * y + intercept
 
+    def graph_on_ax(self,ax):
+        ax.grid(True)
+        ax.axhline(0,color="k")
+        ax.axvline(0,color="k")
+        ax.add_patch(plt.Rectangle((-l,-w),2*l,2*w,fill=False))
+        ax.set_xlim(-1.5*l,1.5*l)
+        ax.set_ylim(-1.5*w,1.5*w)
+        ax.set_xlabel("y")
+        ax.set_ylabel("z")
+        ys = np.linspace(0,6.0)
+        ax.plot(ys,self.center_line()(ys),"k")
+
     def __str__(self):
         return """
         theta = {theta:.2f}; {theta_deg:.2f}
@@ -45,34 +57,30 @@ class LineOfSight:
         self.delta = delta
         self.x0 = self.alpha
         self.calc_y0_z0()
+        self.pos()
         pass
 
     def calc_y0_z0(self):
         if self.delta > self.orn.delta_c:
             self.z0 = w
-            if self.delta > 0:
-                self.y0 = w * np.tan(self.orn.theta) - self.delta/np.cos(self.orn.theta)
-            else:
-                self.y0 = w * np.tan(self.orn.theta) + self.delta/np.cos(self.orn.theta)
+            self.y0 = w * np.tan(self.orn.theta) - self.delta/np.cos(self.orn.theta)
+            self.s_finish = 2.0*w/np.cos(self.orn.theta)
         else:
             self.y0 = l
-            self.z0 = l/np.tan(self.orn.theta) - self.delta/np.sin(self.orn.theta)
+            self.z0 = self.delta/np.sin(self.orn.theta) + l/np.tan(self.orn.theta)
+            self.s_finish = 2.0*l/np.sin(self.orn.theta)
 
-    def graph_on_ax(self,ax):
+    def pos(self,s):
+        x = self.x0
+        y = self.y0 - s * np.sin(self.orn.theta)
+        z = self.z0 - s * np.cos(self.orn.theta)
+        return np.array([x,y,z])
+
+    def graph_on_ax(self,ax,color="b"):
         '''ax is a matplotlib axes object.'''
-        #ax.plot([1,2],[1,2])
-        ax.grid(True)
-        ax.axhline(0,color="k")
-        ax.axvline(0,color="k")
-        ax.add_patch(plt.Rectangle((-l,-w),2*l,2*w,fill=False))
-        ax.set_xlim(-1.5*l,1.5*l)
-        ax.set_ylim(-1.5*w,1.5*w)
-        ax.set_xlabel("y")
-        ax.set_ylabel("z")
         ys = np.linspace(-6.0,6.0)
-        ax.plot(ys,self.orn.center_line()(ys))
-        #ax.plot(ys,self.line_through_point(
         ax.plot(self.y0,self.z0,"bo")
+        ax.plot(ys,self.orn.line_through_point((self.y0,self.z0))(ys),color)
         return
 
     def __str__(self):
