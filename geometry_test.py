@@ -4,29 +4,32 @@ import matplotlib.pyplot as plt
 
 
 def test_delta_0():
-    coord0 = g.StartingCoords(0.,0.0,0.0)
-    coord1 = g.StartingCoords(1.0,0.0,0.0)
-    coord2 = g.StartingCoords(1.11,0.0,0.0)
-    coord3 = g.StartingCoords(1.5,0.0,0.0)
-    coord4 = g.StartingCoords(np.pi/2,0.0,0.0)
-    print(coord0)
-    print(coord1)
-    print(coord2)
-    print(coord3)
-    print(coord4)
+    orientation0 = g.Orientation(0.0)
+    orientation1 = g.Orientation(1.0)
+    orientation2 = g.Orientation(1.11)
+    orientation3 = g.Orientation(1.5)
+    orientation4 = g.Orientation(np.pi/2)
+    los0 = g.LineOfSight(orientation0,0.0,0.0)
+    los1 = g.LineOfSight(orientation1,0.0,0.0)
+    los2 = g.LineOfSight(orientation2,0.0,0.0)
+    los3 = g.LineOfSight(orientation3,0.0,0.0)
+    los4 = g.LineOfSight(orientation4,0.0,0.0)
 
+    print(orientation0)
+    print(los0)
 
-def test_delta():
-    coord0 = g.StartingCoords(0.,1.0,0.0)
-    coord1 = g.StartingCoords(1.0,1.0,0.0)
-    coord2 = g.StartingCoords(1.11,1.0,0.0)
-    coord3 = g.StartingCoords(1.5,1.0,0.0)
-    coord4 = g.StartingCoords(np.pi/2,1.0,0.0)
-    print(coord0)
-    print(coord1)
-    print(coord2)
-    print(coord3)
-    print(coord4)
+    print(orientation1)
+    print(los1)
+
+    print(orientation2)
+    print(los2)
+
+    print(orientation3)
+    print(los3)
+
+    print(orientation4)
+    print(los4)
+
 
 def test_plot():
     fig = plt.figure(figsize=(8,4))
@@ -40,7 +43,7 @@ def test_plot():
 def main():
     #test_delta_0()
     #test_delta()
-    test_plot()
+    #test_plot()
     pass
 
 if __name__=="__main__":
