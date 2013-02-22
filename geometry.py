@@ -85,15 +85,30 @@ class LineOfSight:
                 self.zf = -w
         self.s_finish = (self.y0 - self.yf)/np.sin(self.orn.theta)
 
-    def pos(self,s):
+    def cartesian(self,s):
         x = self.x0 * np.ones_like(s)
         y = self.y0 - s * np.sin(self.orn.theta)
         z = self.z0 - s * np.cos(self.orn.theta)
         return np.array([x,y,z])
 
+    def polar(self,s):
+        x,y,z = self.cartesian(s)
+        r = np.sqrt(x**2. + y**2.)
+        phi = np.arctan2(y,x)
+        return np.array([r,z,phi])
+
+    def coords(self,s):
+        '''Function to return Cartesian and Cyclindrical Corods'''
+        x = self.x0 * np.ones_like(s)
+        y = self.y0 - s * np.sin(self.orn.theta)
+        z = self.z0 - s * np.cos(self.orn.theta)
+        r = np.sqrt(x**2. + y**2.)
+        phi = np.arctan2(y,x)
+        return (np.array([x,y,z]),np.array([r,z,phi]))
+
     def plot_path(self,ax,fmt="bo"):
         ss = np.linspace(0,self.s_finish,num=10)
-        pos_array = self.pos(ss)
+        pos_array = self.cartesian(ss)
         ys = pos_array[1,:]
         zs = pos_array[2,:]
         #print(ys)
@@ -111,6 +126,12 @@ class LineOfSight:
     def check_total_path_length(self):
         distance = np.sqrt((self.yf - self.y0)**2 + (self.zf - self.z0)**2)
         print("Distance={distance:.2f} ; s_finish={s_finish:.2f}".format(distance=distance,s_finish=self.s_finish))
+
+    def dI(self,s):
+        car,cyl = self.coords(s)
+        #rho = 
+        #T = 
+        #v_phi = 
 
     def __str__(self):
         return """
