@@ -15,4 +15,12 @@ q = 0.5
 beta = 1.0
 #M_star,r0,T_r0,q,Sigma0,p,m0,X0):
 disk1 = disk.Disk(M_star,r0, T_r0, q, Sigma0, p, m0, 1.0)
-disk1.plot_rho()
+
+
+
+def main():
+    disk1.plot_rho()
+    pass
+
+if __name__=="__main__":
+    main()

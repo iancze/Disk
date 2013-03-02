@@ -20,6 +20,7 @@ class Disk:
         return self.T_r0 * (r/self.r0)**(-1.*self.q)
 
     def h(self,r):
+        '''Returns in [cm]'''
         return np.sqrt(2. * r**3 * const.k * self.T(r) / (const.G * self.M_star * self.m0))
 
     def Sigma(self,r):
@@ -29,6 +30,7 @@ class Disk:
         return self.Sigma(r)/(np.sqrt(2 * np.pi) * self.h(r))
 
     def rho(self,r,z):
+        '''Returns in [g/cm^3]'''
         return self.rho0(r) * np.exp(-1. * z**2. / (2. * self.h(r)**2.))
 
     def plot_T(self):
@@ -52,13 +54,17 @@ class Disk:
     def plot_rho(self):
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        r = np.linspace(const.AU, 3 * self.r0)
+        r = np.linspace(0.1, 10*const.AU)#self.r0)
         #r = np.logspace(np.log10(const.AU),np.log10(3 * self.r0))
         #z = np.arange(-0.4, 1.1, 0.01)
-        z = np.linspace(const.AU, 100.*const.AU)
+        z = np.linspace(0.0, const.AU)
         r_grid, z_grid = np.meshgrid(r, z)
         rho_grid = np.log10(self.rho(r_grid, z_grid))
-        CS = ax.contour(r_grid/const.AU, z_grid/const.AU, rho_grid,20)
+        levels = np.linspace(-14,-8,num=12)
+        CS = ax.contourf(r_grid/const.AU, z_grid/const.AU, rho_grid,levels=levels)
+        ax.set_xlabel(r"$r$ (AU)")
+        ax.set_ylabel(r"$z$ (AU)")
+        ax.set_title(r"$\log_{10}(\rho)$, [$\log_{10}({\rm g/cm}^3)$]" )
         cbar = plt.colorbar(CS)
         #ax.set_xlabel("r [AU]")
         #ax.set_ylabel("T [K]")
