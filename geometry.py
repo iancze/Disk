@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 
 import numpy as np
+import constants as const
+import radiation as rad
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
 
 #Testing whether the geometry is correct in determining starting positions on the box.
 
 #Box is total width (in z direction) of 2w and total length (in y direction) of 2l
 global w,l
-w = 2.
-l = 4.
+w = 200. * const.AU
+l = 500. * const.AU
 
 class Orientation:
-    def __init__(self,theta):
-        self.theta = theta
+    def __init__(self,model,theta,distance):
+        self.model = model #reference to model class
+        self.theta = theta #inclination. 0 is face-on, pi/2 is edge-on
+        self.distance = distance
         self.theta_c = np.arctan(l/w)
         self.delta_c = w * np.sin(self.theta) - l * np.cos(self.theta)
         self.delta_limit = w * np.sin(self.theta) + l * np.cos(self.theta)
@@ -51,20 +56,27 @@ class Orientation:
         slope = {slope:.2f}""".format(theta=self.theta,theta_deg=(self.theta * 180./np.pi),theta_c_deg=(self.theta_c * 180./np.pi),theta_c=self.theta_c,delta_c=self.delta_c,delta_high=self.delta_limit,delta_low=(-1.*self.delta_limit),slope=self.slope)
 
 class LineOfSight:
-    def __init__(self,orientation,delta,alpha):
+    def __init__(self,model,orientation,delta,alpha,nu):
+        '''alpha_phys and delta_phys are the actual projected distances at the location of the disk.'''
+        self.model = model #Link to the model
         self.orn = orientation #Link to the orientation object
         self.alpha = alpha
+        self.alpha_phys = self.alpha * self.orn.distance * (const.AU/const.pc)
         self.delta = delta
-        self.x0 = self.alpha
+        self.delta_phys = self.delta * self.orn.distance * (const.AU/const.pc)
+        self.x0 = self.alpha_phys
         self.xf = self.x0
+        self.nu = nu
+        self.k_nu = rad.k_nu(self.nu,self.model.beta)
         self.calc_y0_z0()
+        self.disk = self.orn.model.disk
         pass
 
     def calc_y0_z0(self):
         '''Given the inital geometry via the Orientation object, calculate y0, z0, yf, zf, and s_finish.'''
-        if self.delta > self.orn.delta_c:
+        if self.delta_phys > self.orn.delta_c:
             self.z0 = w
-            self.y0 = w * np.tan(self.orn.theta) - self.delta/np.cos(self.orn.theta)
+            self.y0 = w * np.tan(self.orn.theta) - self.delta_phys/np.cos(self.orn.theta)
             #k2 is the critical length, see pg 15, 2/21/13
             k2 = (self.y0 + l)/np.tan(self.orn.theta)
             if k2 > 2. * w:
@@ -75,7 +87,7 @@ class LineOfSight:
                 self.yf = -l
         else:
             self.y0 = l
-            self.z0 = self.delta/np.sin(self.orn.theta) + l/np.tan(self.orn.theta)
+            self.z0 = self.delta_phys/np.sin(self.orn.theta) + l/np.tan(self.orn.theta)
             k2 = (self.z0 + w) * np.tan(self.orn.theta)
             if k2 > 2. * l:
                 self.yf = -l
@@ -127,11 +139,63 @@ class LineOfSight:
         distance = np.sqrt((self.yf - self.y0)**2 + (self.zf - self.z0)**2)
         print("Distance={distance:.2f} ; s_finish={s_finish:.2f}".format(distance=distance,s_finish=self.s_finish))
 
+    def v_k(self,s):
+        car,(r,z,phi) = self.coords(s)
+        return self.disk.v_phi(r) * np.cos(phi) * np.sin(self.orn.theta)
+
+    def K_nu(self,s):
+        car,(r,z,phi) = self.coords(s)
+        T = self.disk.T(r)
+        rho = self.disk.rho(r,z)
+        Z = np.sqrt(1.0 + ((2. * T)/self.model.T1)**2) #Partition function
+        n_l = self.x0 * rho/const.m0 * self.model.gl * np.exp(-self.model.El/(const.k * T)) / Z
+        K_dust = rho * self.k_nu
+        K_CO = n_l * self.sigma_nu(s)
+        return K_dust + K_CO
+
+    def sigma_nu(self,s):
+        car,(r,z,phi) = self.coords(s)
+        T = self.disk.T(r)
+        return self.model.sigma0 * self.phi_nu(s) * (1. - np.exp(-const.h * self.nu/(const.k * T)))
+
+    def phi_nu(self,s):
+        car,(r,z,phi) = self.coords(s)
+        T = self.disk.T(r)
+        Delta_V = np.sqrt(2. * const.k * T/const.m_CO +  self.model.vturb**2)
+        v_obs = const.c/self.model.nu0 * (self.nu - self.model.nu0)
+        Delta_v = self.v_k(s) - v_obs 
+        return const.c/(self.model.nu0 * np.sqrt(np.pi) * Delta_V) * np.exp(-1. * Delta_v**2/Delta_V**2)
+
+    def tau(self,s):
+        #integrate from 0 to s
+        return quad(self.K_nu,0.0,s)[0]
+
     def dI(self,s):
-        car,cyl = self.coords(s)
+        car,(r,z,phi) = self.coords(s)
         #rho = 
-        #T = 
-        #v_phi = 
+        T = self.disk.T(r)
+        S = rad.S(T,self.nu)
+        rho = self.disk.rho(r,z)
+        K_nu = self.K_nu(s)
+        tau = self.tau(s)
+        return S * np.exp(-tau) * K_nu
+
+    def integrate(self):
+        '''Integrate forwards along the line of sight, return the final intensity'''
+        return quad(self.dI,0.0,self.s_finish)[0]
+
+    def plot_K_nu(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ss = np.linspace(0,self.s_finish,num=1000)
+        ax.semilogy(ss/const.AU,self.K_nu(ss))
+        print(self.K_nu(500.*const.AU))
+        #ax.set_xlim(400,600)
+        ax.set_xlabel(r"$s$ (AU)")
+        ax.set_ylabel(r"$K_\nu(s)\quad[{\rm cm}^{-1}]$")
+        fig.subplots_adjust(left=0.20)
+        fig.savefig("Plots/Test_Rad/k_nu_vs_s.png")
+
 
     def __str__(self):
         return """

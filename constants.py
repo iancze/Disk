@@ -48,3 +48,6 @@ AU = 1.4959787066e13 #cm
 #CO specific
 m_CO = 28.01 * amu #molecular weight of CO in g
 mu_CO = 0.122 #Dipole moment of CO in Debye, a CGS unit
+
+#Disk specific
+m0 = 2.37 * amu #mean molecular weight of gas

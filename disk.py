@@ -6,25 +6,25 @@ import matplotlib.pyplot as plt
 import constants as const
 
 class Disk:
-    def __init__(self,M_star,r0,T_r0,q,Sigma0,p,m0,X0):
+    def __init__(self,model,M_star,r0,T_r0,q,Sigma0,p):
+        self.model = model #Reference to model
         self.M_star = M_star
         self.r0 = r0 #characteristic radius
         self.T_r0 = T_r0 #Normalization of Temperature
         self.q = q #Exponent of Temperature power law
         self.Sigma0 = Sigma0 #Surface density normalization
         self.p = p #Exponent of surface denisty power law
-        self.m0 = m0 #mean molecular weight of gas
-        self.X0 = X0 #gas fraction of CO
+        self.soft = 0.1*const.AU #softening term for density and temp profiles
 
     def T(self,r):
-        return self.T_r0 * (r/self.r0)**(-1.*self.q)
+        return self.T_r0 * ((r + self.soft)/self.r0)**(-1.*self.q)
 
     def h(self,r):
         '''Returns in [cm]'''
-        return np.sqrt(2. * r**3 * const.k * self.T(r) / (const.G * self.M_star * self.m0))
+        return np.sqrt(2. * (r+self.soft)**3 * const.k * self.T(r) / (const.G * self.M_star * const.m0))
 
     def Sigma(self,r):
-        return  self.Sigma0 * (r/self.r0)**(-1.*self.p)
+        return  self.Sigma0 * ((r+self.soft)/self.r0)**(-1.*self.p)
 
     def rho0(self,r):
         return self.Sigma(r)/(np.sqrt(2 * np.pi) * self.h(r))
@@ -32,6 +32,9 @@ class Disk:
     def rho(self,r,z):
         '''Returns in [g/cm^3]'''
         return self.rho0(r) * np.exp(-1. * z**2. / (2. * self.h(r)**2.))
+
+    def v_phi(self,r):
+        return np.sqrt(const.G * self.M_star/ (r+self.soft))
 
     def plot_T(self):
         fig = plt.figure()
