@@ -189,13 +189,20 @@ class LineOfSight:
         ax = fig.add_subplot(111)
         ss = np.linspace(0,self.s_finish,num=1000)
         ax.semilogy(ss/const.AU,self.K_nu(ss))
-        print(self.K_nu(500.*const.AU))
-        #ax.set_xlim(400,600)
         ax.set_xlabel(r"$s$ (AU)")
         ax.set_ylabel(r"$K_\nu(s)\quad[{\rm cm}^{-1}]$")
         fig.subplots_adjust(left=0.20)
         fig.savefig("Plots/Test_Rad/k_nu_vs_s.png")
 
+    def plot_tau(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ss = np.linspace(0,self.s_finish,num=100)
+        taus = np.array([self.tau(i) for i in ss])
+        ax.set_xlabel(r"$s$ (AU)")
+        ax.set_ylabel(r"$\tau(s)$")
+        ax.semilogy(ss/const.AU, taus)
+        fig.savefig("Plots/Test_Rad/tau_vs_s.png")
 
     def __str__(self):
         return """

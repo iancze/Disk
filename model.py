@@ -63,7 +63,8 @@ class Model:
         #do this for each nu within a range which will be the channel map
         #Right now do this for (alpha,delta) = (0.0,0.0)
         LoS = geometry.LineOfSight(self,self.orientation,0.0,0.0,nu)
-        LoS.plot_K_nu()
+        #LoS.plot_K_nu()
+        LoS.plot_tau()
         #print(LoS.integrate())
 
     def set_species_constants(self):
