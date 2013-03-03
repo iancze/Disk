@@ -70,6 +70,7 @@ class LineOfSight:
         self.k_nu = rad.k_nu(self.nu,self.model.beta)
         self.calc_y0_z0()
         self.disk = self.orn.model.disk
+        self.tau = np.vectorize(self.tau_general)
         pass
 
     def calc_y0_z0(self):
@@ -166,13 +167,17 @@ class LineOfSight:
         Delta_v = self.v_k(s) - v_obs 
         return const.c/(self.model.nu0 * np.sqrt(np.pi) * Delta_V) * np.exp(-1. * Delta_v**2/Delta_V**2)
 
-    def tau(self,s):
-        #integrate from 0 to s
+    def tau_general(self,s):
         return quad(self.K_nu,0.0,s)[0]
+
+    def S(self,s):
+        car,(r,z,phi) = self.coords(s)
+        T = self.disk.T(r)
+        S = rad.S(T,self.nu)
+        return S
 
     def dI(self,s):
         car,(r,z,phi) = self.coords(s)
-        #rho = 
         T = self.disk.T(r)
         S = rad.S(T,self.nu)
         rho = self.disk.rho(r,z)
@@ -198,11 +203,35 @@ class LineOfSight:
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ss = np.linspace(0,self.s_finish,num=100)
-        taus = np.array([self.tau(i) for i in ss])
+        #func = lambda s: self.tau(s)
+        #func = np.vectorize(func)
+        taus = self.tau(ss)
         ax.set_xlabel(r"$s$ (AU)")
         ax.set_ylabel(r"$\tau(s)$")
         ax.semilogy(ss/const.AU, taus)
         fig.savefig("Plots/Test_Rad/tau_vs_s.png")
+
+    def plot_S(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ss = np.linspace(0,self.s_finish,num=100)
+        ax.set_xlabel(r"$s$ (AU)")
+        ax.set_ylabel(r"$S_\nu(s)\quad \left[ \frac{{\rm erg}}{{\rm cm}^2\cdot {\rm s\cdot ster\cdot Hz}} \right]$")
+        ax.semilogy(ss/const.AU, self.S(ss))
+        fig.subplots_adjust(left=0.20)
+        fig.savefig("Plots/Test_Rad/S_vs_s.png")
+
+    def plot_dI(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ss = np.linspace(0,self.s_finish,num=100)
+        #dIs = np.array([self.dI(i) for i in ss])
+        dIs = self.dI(ss)
+        ax.set_xlabel(r"$s$ (AU)")
+        ax.set_ylabel(r"$dI(s)\quad \left[ \frac{{\rm erg}}{{\rm cm}^3\cdot {\rm s\cdot ster\cdot Hz}} \right] $")
+        ax.semilogy(ss/const.AU,dIs)
+        fig.subplots_adjust(left=0.20)
+        fig.savefig("Plots/Test_Rad/dI_vs_s.png")
 
     def __str__(self):
         return """
