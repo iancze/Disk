@@ -59,24 +59,25 @@ class Model:
         alphas = np.linspace(-img_width/2.,img_width/2,20)
         deltas = np.linspace(-img_height/2.,img_height/2,20)
         alpha_grid, delta_grid = np.meshgrid(alphas, deltas)
+        np.save("alpha.npy", alpha_grid)
+        np.save("delta.npy", delta_grid)
         #for each (alpha,delta) pair, create a LoS, integrate, and return a value
         #do this for each nu within a range which will be the channel map
         #Right now do this for (alpha,delta) = (0.0,0.0)
-        LoS_array = []
-        intensity_array = []
-        for i in range(len(alpha_grid)):
-            los = geometry.LineOfSight(self,self.orientation,alpha_grid[i],delta_grid[i],nu)
-            LoS.array.append(los)
-            intensity_array.append(los.integrate())
+#        intensity_array = np.zeros_like(alpha_grid)
+#        for i in range(len(alpha_grid)):
+#            for j in range(len(delta_grid)):
+#                los = geometry.LineOfSight(self,self.orientation,alpha_grid[i][j],delta_grid[i][j],nu)
+#                intensity_array[i][j] = los.integrate()
 
-        intensity_array = np.array(intensity_array)
-        np.save(intensity_array
+        #intensity_array = np.array(intensity_array)
+        #np.save("img.npy",intensity_array)
         #LoS.plot_K_nu()
         #LoS.plot_tau()
         #LoS.plot_S()
         #LoS.plot_dI()
-        print(LoS1.integrate())
-        print(LoS2.integrate())
+        #print(LoS1.integrate())
+        #print(LoS2.integrate())
 
     def set_species_constants(self):
         self.x0 = x0_dict[self.species]
