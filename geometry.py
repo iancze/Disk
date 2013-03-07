@@ -70,7 +70,7 @@ class LineOfSight:
         self.k_nu = rad.k_nu(self.nu,self.model.beta)
         self.calc_y0_z0()
         self.disk = self.orn.model.disk
-        self.tau = np.vectorize(self.tau_general)
+        self.tau = np.vectorize(self.tau_general) #vectorized tau function
         pass
 
     def calc_y0_z0(self):

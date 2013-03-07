@@ -44,6 +44,7 @@ sigma_SB = 5.6704e-5 #erg cm^-2 s^-1 K^-4
 #Conversion factors
 pc = 3.0856776e18 #cm
 AU = 1.4959787066e13 #cm
+kms = 1e5 #cm/s
 
 #CO specific
 m_CO = 28.01 * amu #molecular weight of CO in g

@@ -1,6 +1,8 @@
 import geometry as g
 import numpy as np
 import matplotlib.pyplot as plt
+import constants as const
+import model
 
 
 def test_delta_0():
@@ -65,8 +67,9 @@ def test_polar(deg):
     return
 
 def test_coords(deg):
-    orn1 = g.Orientation(deg * np.pi/180.)
-    los1 = g.LineOfSight(orn1, 1.0, 0.0)
+    mod1 = model.Model(0,"13CO",model.disk_params,model.orn_params)
+    orn1 = g.Orientation(mod1,deg * np.pi/180.,150.*const.AU)
+    los1 = g.LineOfSight(mod1,orn1, 1.0, 0.0,110.e9)
     s_test = los1.s_finish*0.6
     print(s_test)
     print(los1.dI(s_test))

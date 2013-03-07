@@ -20,3 +20,4 @@ def n_l(s):
 
 def S(T,nu):
     return 2. * const.h * nu**3 / const.c**2 / (np.exp(const.h * nu / (const.k * T)) - 1.0)
+

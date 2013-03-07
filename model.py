@@ -6,6 +6,9 @@ import radiation
 import geometry
 import constants as const
 import numpy as np
+import cProfile
+import pstats
+
 
 #parameters
 beta = 1.0
@@ -23,10 +26,10 @@ disk_params = {"M_star":2.6 * const.M_sun,
 "q": 0.5, 
 "Sigma0": 90., #g/cm^2
 "p":0.6}
-orn_params = {"theta":np.pi/2.,
+orn_params = {"theta":np.pi/4.,
         "distance":150. * const.pc}
-img_width = 5. #arcseconds
-img_height = 5. #arcseconds
+img_width = 2. #arcseconds
+img_height = 2. #arcseconds
 
 class Model:
     '''General Container class to generate a model for a given set of parameters. The parameters are:
@@ -64,14 +67,14 @@ class Model:
         #for each (alpha,delta) pair, create a LoS, integrate, and return a value
         #do this for each nu within a range which will be the channel map
         #Right now do this for (alpha,delta) = (0.0,0.0)
-#        intensity_array = np.zeros_like(alpha_grid)
-#        for i in range(len(alpha_grid)):
-#            for j in range(len(delta_grid)):
-#                los = geometry.LineOfSight(self,self.orientation,alpha_grid[i][j],delta_grid[i][j],nu)
-#                intensity_array[i][j] = los.integrate()
+        intensity_array = np.zeros_like(alpha_grid)
+        for i in range(len(alpha_grid)):
+            for j in range(len(delta_grid)):
+                los = geometry.LineOfSight(self,self.orientation,alpha_grid[i][j],delta_grid[i][j],nu)
+                intensity_array[i][j] = los.integrate()
 
-        #intensity_array = np.array(intensity_array)
-        #np.save("img.npy",intensity_array)
+        intensity_array = np.array(intensity_array)
+        np.save("img45_2kms.npy",intensity_array)
         #LoS.plot_K_nu()
         #LoS.plot_tau()
         #LoS.plot_S()
@@ -88,9 +91,14 @@ class Model:
         self.El = 0.5 * (self.l * (self.l + 1)) * const.k * self.T1
         self.sigma0 = 8. * np.pi**3 * const.k * self.T1 / (const.h**2 * const.c) * (self.l + 1)**2/(2. * self.l + 1) * self.dipole**2
 
+    def center_frequency(self,velocity):
+        '''Takes in the Delta v for the channel (in cm/s) and returns the corresponding frequency (in Hz)'''
+        return self.nu0 * velocity / const.c + self.nu0
+
 def main():
     mod1 = Model(0,"13CO",disk_params,orn_params)
-    mod1.generate_images(110.e9)
-
+    nu_off = mod1.center_frequency(2.*const.kms)
+    mod1.generate_images(nu_off)
+   
 if __name__=="__main__":
     main()
