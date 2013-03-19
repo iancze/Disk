@@ -57,7 +57,7 @@ class Orientation:
 
 
 class LineOfSight:
-    def __init__(self,model,orientation,delta,alpha,nu):
+    def __init__(self,model,orientation,delta,alpha,nu,grid):
         '''alpha_phys and delta_phys are the actual projected distances at the location of the disk.'''
         self.model = model #Link to the model
         self.orn = orientation #Link to the orientation object
@@ -73,6 +73,8 @@ class LineOfSight:
         self.disk = self.orn.model.disk
         self.tau = np.vectorize(self.tau_general) #vectorized tau function
         self.ss = np.arange(0.,self.s_finish,0.1*const.AU)
+        self.grid = grid
+        self.walk_along_grid()
 
     def calc_y0_z0(self):
         '''Given the inital geometry via the Orientation object, calculate y0, z0, yf, zf, and s_finish.'''
@@ -98,6 +100,36 @@ class LineOfSight:
                 self.yf = self.y0 - k2
                 self.zf = -w
         self.s_finish = (self.y0 - self.yf)/np.sin(self.orn.theta)
+
+    def walk_along_grid(self):
+        r_grid = self.grid.r_grid
+        theta_grid = self.grid.theta_grid
+        phi_grid = self.grid.phi_grid
+        r0 = self.r_mid(0.)
+        theta0 = self.theta(0.)
+        phi0 = self.phi(0.)
+        #start at s = 0
+        #for x0,y0,z0, find i0_cell,j0_cell,k0_cell
+        #for this, use 
+        #step forward in s till meet R_grid[i+1 or i-1], Theta[i+1 or i-1], or Phi[i+1 or i-1]
+
+    def x(self,s):
+        return self.x0 * np.ones_like(s)
+
+    def y(self,s):
+        return self.y0 - s * np.sin(self.orn.theta)
+
+    def z(self,s):
+        return self.z0 - s * np.cos(self.orn.theta)
+
+    def r_mid(self,s):
+        return np.sqrt(self.x(s)**2 + self.y(s)**2)
+
+    def theta(self,s):
+        return np.arctan2(self.z(s),self.r_mid(s))
+
+    def phi(self,s):
+        return np.arctan2(self.y(s),self.x(s))
 
     def cartesian(self,s):
         x = self.x0 * np.ones_like(s)
@@ -279,11 +311,11 @@ class Grid:
         self.theta_grid = np.linspace(self.theta_min,self.theta_max,num=self.N_theta)
         self.phi_grid = np.linspace(0,2*np.pi,num=self.N_phi)
 
-        self.grid = np.empty((self.N_r,self.N_theta,self.N_phi,3))
-        for i in range(self.N_r):
-            for j in range(self.N_theta):
-                for k in range(self.N_phi):
-                    self.grid[i,j,k] = np.array([self.r_grid[i],self.theta_grid[j],self.phi_grid[k]])
+#        self.grid = np.empty((self.N_r,self.N_theta,self.N_phi,3))
+#        for i in range(self.N_r):
+#            for j in range(self.N_theta):
+#                for k in range(self.N_phi):
+#                    self.grid[i,j,k] = np.array([self.r_grid[i],self.theta_grid[j],self.phi_grid[k]])
 
         self.r_cells = np.logspace(np.log10(np.average(self.r_grid[0:2])),np.log10(np.average(self.r_grid[-2:])),num=self.N_r-1)
         self.theta_cells = np.linspace(np.average(self.theta_grid[0:2]),np.average(self.theta_grid[-2:]),num=self.N_theta-1)
