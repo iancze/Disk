@@ -5,6 +5,7 @@ import constants as const
 import radiation as rad
 import matplotlib.pyplot as plt
 from scipy.integrate import quad
+from scipy.optimize import fsolve
 
 #Testing whether the geometry is correct in determining starting positions on the box.
 
@@ -57,7 +58,7 @@ class Orientation:
 
 
 class LineOfSight:
-    def __init__(self,model,orientation,delta,alpha,nu,grid):
+    def __init__(self,model,orientation,delta,alpha,nu):
         '''alpha_phys and delta_phys are the actual projected distances at the location of the disk.'''
         self.model = model #Link to the model
         self.orn = orientation #Link to the orientation object
@@ -73,7 +74,7 @@ class LineOfSight:
         self.disk = self.orn.model.disk
         self.tau = np.vectorize(self.tau_general) #vectorized tau function
         self.ss = np.arange(0.,self.s_finish,0.1*const.AU)
-        self.grid = grid
+        self.grid = self.model.grid
         self.walk_along_grid()
 
     def calc_y0_z0(self):
@@ -105,12 +106,40 @@ class LineOfSight:
         r_grid = self.grid.r_grid
         theta_grid = self.grid.theta_grid
         phi_grid = self.grid.phi_grid
+
+        #Define initial starting points
         r0 = self.r_mid(0.)
         theta0 = self.theta(0.)
         phi0 = self.phi(0.)
-        #start at s = 0
-        #for x0,y0,z0, find i0_cell,j0_cell,k0_cell
-        #for this, use 
+        #Define initial indices
+        i0 = np.max(np.where(r0 > r_grid)[0])
+        j0 = np.max(np.where(theta0 > theta_grid)[0])
+        k0 = np.max(np.where(phi0 > phi_grid)[0])
+
+        s_test = np.average(r_grid[i0:i0+2])
+        r_low = lambda s: self.r_mid(s) - r_grid[i0]
+        ds_low = fsolve(r_low,s_test)[0]
+        print(ds_low)
+        r_high = lambda s: r_grid[i0+1] - self.r_mid(s)
+        ds_high = fsolve(r_high,s_test)[0]
+        print(ds_high)
+
+        theta_low = lambda s: self.theta(s) - theta_grid[j0]
+        dtheta_low = fsolve(theta_low,0.1*const.AU)[0]
+        print(dtheta_low)
+
+        theta_high = lambda s: theta_grid[j0+1] - self.theta(s)
+        dtheta_high = fsolve(theta_high,0.1*const.AU)[0]
+        print(dtheta_high)
+
+        phi_low = lambda s: self.phi(s) - phi_grid[k0]
+        dphi_low = fsolve(phi_low,0.1*const.AU)[0]
+        print(dphi_low)
+
+        phi_high = lambda s: phi_grid[k0+1] - self.phi(s)
+        dphi_high = fsolve(phi_high,0.1*const.AU)[0]
+        print(dphi_high)
+
         #step forward in s till meet R_grid[i+1 or i-1], Theta[i+1 or i-1], or Phi[i+1 or i-1]
 
     def x(self,s):
@@ -301,7 +330,7 @@ class Grid:
     def __init__(self):
         self.r_min = 0.1 * const.AU
         self.r_max = np.sqrt(2) * l
-        self.theta_min = 45. * np.pi/180
+        self.theta_min = 0.1 * np.pi/180
         self.theta_max = np.pi - self.theta_min
         self.N_r = 10
         self.N_theta = 10

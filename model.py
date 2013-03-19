@@ -54,6 +54,7 @@ class Model:
         self.set_species_constants()
         self.disk = disk.Disk(self,**disk_params)
         self.orientation = geometry.Orientation(self,**orn_params)
+        self.grid = geometry.Grid()
         self.beta = beta
         self.vturb = 0.0
 
@@ -101,7 +102,7 @@ def main():
     mod1 = Model(0,"13CO",disk_params,orn_params)
     nu = mod1.center_frequency(0.0)
     los = geometry.LineOfSight(mod1,mod1.orientation,1.0,1.0,nu)
-    print(los.integrate())
+    #print(los.integrate())
     #nu_off = mod1.center_frequency(0.0)
     #mod1.generate_images(nu)
    
