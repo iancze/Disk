@@ -56,7 +56,6 @@ class Orientation:
         delta_low = {delta_low:.2f}
         slope = {slope:.2f}""".format(theta=self.theta,theta_deg=(self.theta * 180./np.pi),theta_c_deg=(self.theta_c * 180./np.pi),theta_c=self.theta_c,delta_c=self.delta_c,delta_high=self.delta_limit,delta_low=(-1.*self.delta_limit),slope=self.slope)
 
-
 class LineOfSight:
     def __init__(self,model,orientation,delta,alpha,nu):
         '''alpha_phys and delta_phys are the actual projected distances at the location of the disk.'''
@@ -153,22 +152,6 @@ class LineOfSight:
         plt.plot(ys/const.AU,zs/const.AU)
         plt.show()
 
-    def plot_spher_vs_s(self):
-        fig = plt.figure()
-        ss = np.linspace(0,self.s_finish)
-        ax1 = fig.add_subplot(311)
-        r_mids = self.r_mid(ss)
-        ax1.semilogy(ss/const.AU,r_mids)
-
-        ax2 = fig.add_subplot(312)
-        thetas = self.theta(ss)
-        ax2.plot(ss/const.AU,thetas)
-
-        ax3 = fig.add_subplot(313)
-        phis = self.phi(ss)
-        ax3.plot(ss/const.AU,phis)
-        plt.show()
-
     def x(self,s):
         return self.x0 * np.ones_like(s)
 
@@ -177,15 +160,6 @@ class LineOfSight:
 
     def z(self,s):
         return self.z0 - s * np.cos(self.orn.theta)
-
-    def r_mid(self,s):
-        return np.sqrt(self.x(s)**2 + self.y(s)**2)
-
-    def theta(self,s):
-        return np.arctan2(self.z(s),self.r_mid(s))
-
-    def phi(self,s):
-        return np.arctan2(self.y(s),self.x(s))
 
     def cartesian(self,s):
         x = self.x0 * np.ones_like(s)
@@ -209,21 +183,6 @@ class LineOfSight:
         r = np.sqrt(x**2. + y**2.)
         phi = np.arctan2(y,x)
         return (np.array([x,y,z]),np.array([r,z,phi]))
-
-    def integrate(self):
-        pols = self.polar(self.ss)
-        Ts = self.disk.T(pols[0,:])
-        rhos = self.disk.rho(pols[0,:],pols[1,:])
-        Ss = rad.S(Ts,self.nu)
-        self.K_nus = self.K_nu(pols,Ts,rhos)
-        tau_vec = np.vectorize(lambda s: self.tau_dis(s))
-        taus = tau_vec(self.ss)
-        dIs = Ss * np.exp(-taus) * self.K_nus
-        plt.semilogy(self.ss/const.AU,self.K_nus)
-        plt.show()
-        print(taus)
-        print(self.ss)
-        return np.trapz(dIs,self.ss)
 
     def tau_dis(self,s):
         ind = np.where(self.ss <= s)[0]
@@ -298,10 +257,6 @@ class LineOfSight:
         tau = self.tau(s)
         return S * np.exp(-tau) * K_nu
 
-    #def integrate(self):
-    #    '''Integrate forwards along the line of sight, return the final intensity'''
-    #    return quad(self.dI,0.0,self.s_finish)[0]
-
     def plot_K_nu(self):
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -371,18 +326,4 @@ class Grid:
             for j in range(self.N_xy-1):
                 for k in range(self.N_z-1):
                     self.cells[i,j,k] = np.array([self.x_cells[i],self.y_cells[j],self.z_cells[k]])
-
-    def spher_to_cart(self):
-        pos = self.cells.reshape(((self.N_r -1)*(self.N_theta-1)*(self.N_phi-1),3))
-        x = pos[:,0] * np.cos(pos[:,2])
-        y = pos[:,0] * np.sin(pos[:,2])
-        z = pos[:,0]/np.tan(pos[:,1])
-        from mpl_toolkits.mplot3d import Axes3D
-        import matplotlib.pyplot as plt
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(x/const.AU,y/const.AU,z/const.AU)
-        plt.show()
-        cart = np.array([x,y,z])
-        return np.transpose(cart)
 
