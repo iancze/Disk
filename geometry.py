@@ -103,103 +103,55 @@ class LineOfSight:
         self.s_finish = (self.y0 - self.yf)/np.sin(self.orn.theta)
 
     def walk_along_grid(self):
-        r_grid = self.grid.r_grid
-        theta_grid = self.grid.theta_grid
-        phi_grid = self.grid.phi_grid
+        x_grid = self.grid.x_grid
+        y_grid = self.grid.y_grid
+        z_grid = self.grid.z_grid
 
-        #Define initial starting points
+        #Define initial starting cell
+        self.i = np.max(np.where(self.x0 > x_grid)[0])
+        self.j = np.max(np.where(self.y0 > y_grid)[0])
+        self.k = np.max(np.where(self.z0 > z_grid)[0])
+
+        print("i0:%i; j0:%i; k0:%i" % (self.i,self.j,self.k))
+        print()
+
         s_total = 0.
-        r0 = self.r_mid(0.)
-        theta0 = self.theta(0.)
-        phi0 = self.phi(0.)
-        r_step = -1
-        theta_step = -1
-        phi_step = -1
-        #Define initial indices
-        self.i = np.max(np.where(r0 > r_grid)[0])
-        self.j = np.max(np.where(theta0 > theta_grid)[0])
-        self.k = np.max(np.where(phi0 > phi_grid)[0])
-        #Starting cell.
-        print("i:%i; j:%i; k:%i" % (self.i,self.j,self.k))
-    
-        r_high = lambda s,i: self.r_mid(s) - r_grid[i+1]
-        r_low = lambda s,i: self.r_mid(s) - r_grid[i]
 
+        #move to first wall boundary
+        guess_y = (y_grid[1] - y_grid[0])/2.
+        guess_z = (z_grid[1] - z_grid[0])/2.
+        y_func = lambda s,j: self.y(s) - y_grid[j]
+        z_func = lambda s,k: self.z(s) - z_grid[k]
+        j_track = []
+        k_track = []
 
-        theta_high = lambda s,j: self.theta(s)- theta_grid[j+1]
-        theta_low = lambda s,j: self.theta(s) - theta_grid[j]
-
-
-        phi_high = lambda s,k: self.phi(s)- phi_grid[k+1]
-        phi_low = lambda s,k: self.phi(s) - phi_grid[k]
-
-
-        def sfsolve(func,guess,params):
-            answer, out_dict, flag, msg = fsolve(func,guess,params,full_output=True)
-            if flag != 1:
-                return -1.
-            else:
-                return answer[0]
-
-        #while s_total < self.s_finish:
-        for x in range(3):
-            s_delta = np.average(r_grid[self.i-1:self.i+1])
-            print("s_delta: %.2e" % s_delta)
-            s_test = s_total + s_delta
-            print("s_test: %.2e" % s_test)
-
-            if self.y(s_total) > 0:
-                r_step = sfsolve(r_low,s_test,(self.i))
-            else:
-                r_step = sfsolve(r_high,s_test,(self.i))
-
-            theta_plus = sfsolve(theta_high,s_test,(self.j))
-            theta_minus = sfsolve(theta_low,s_test,(self.j))
-
-            if self.x(s_total) > 0:
-                phi_step = sfsolve(phi_low,s_test,(self.k))
-            else:
-                phi_step = sfsolve(phi_high,s_test,(self.k))
-
-            step_sizes = np.array([r_step,theta_plus,theta_minus,phi_step]) - s_total
-            above_zero = np.where(step_sizes > 0)[0]
-            min_ind = np.argmin(step_sizes[above_zero])
-            step_index = above_zero[min_ind]
-            print(step_sizes)
-            #print(step_index)
-            ds = step_sizes[step_index]
-            s_total = s_total + ds
-            print("step size: %.2e" % ds)
-
-            if step_index == 0:
-                print("Stepping up in r")
-                if self.i < len(r_grid) - 1:
-                    self.i = self.i + 1
-
-            elif step_index == 1:
-                print("Stepping down in r")
-                if self.i > 0:
-                    self.i = self.i - 1
-
-            elif step_index == 2:
-                print("Stepping up in theta")
-                self.j = self.j + 1
-
-            elif step_index == 3:
-                print("Stepping down in theta")
+        while(s_total < self.s_finish and self.j >= 0 and self.k >= 0):
+            j_track.append(self.j)
+            k_track.append(self.k)
+            s_max_y = fsolve(y_func,s_total + guess_y,(self.j))[0]
+            s_max_z = fsolve(z_func,s_total + guess_z,(self.k))[0]
+            if s_max_y < s_max_z:
+                s_total = s_max_y
                 self.j = self.j - 1
-
-            elif step_index == 4:
-                print("Stepping up in phi")
-                self.k = self.k + 1
-
-            elif step_index == 5:
-                print("Stepping down in phi")
+            else:
+                s_total = s_max_z
                 self.k = self.k - 1
 
-            print("i:%i; j:%i; k:%i" % (self.i,self.j,self.k))
-            print("s_total: %.2e" % s_total)
+            print(s_max_y,s_max_z)
+            print("j:%i; k:%i" % (self.j,self.k))
+            print("Complete: %.2f" % (s_total/self.s_finish))
             print()
+        js = np.array(j_track)
+        ks = np.array(k_track)
+        plt.plot(y_grid[js]/const.AU,z_grid[ks]/const.AU,"o")
+        plt.show()
+
+    def plot_los(self):
+        ss = np.linspace(0,self.s_finish)
+        ys = self.y(ss)
+        zs = self.z(ss)
+        plt.plot(ys/const.AU,zs/const.AU)
+        plt.show()
 
     def plot_spher_vs_s(self):
         fig = plt.figure()
@@ -403,34 +355,22 @@ class LineOfSight:
 
 class Grid:
     def __init__(self):
-        self.r_min = 0.1 * const.AU
-        self.r_max = np.sqrt(2) * l
-        self.theta_min = 0.1 * np.pi/180
-        self.theta_max = np.pi - self.theta_min
-        self.N_r = 10
-        self.N_theta = 10
-        self.N_phi = 10
+        self.N_xy = 10
+        self.N_z = 5
 
-        self.r_grid = np.logspace(np.log10(self.r_min),np.log10(self.r_max),num=self.N_r)
-        self.theta_grid = np.linspace(self.theta_min,self.theta_max,num=self.N_theta)
-        self.phi_grid = np.linspace(0,2*np.pi,num=self.N_phi)
+        self.x_grid = np.linspace(-l,l,num=self.N_xy)
+        self.y_grid = self.x_grid.copy()
+        self.z_grid = np.linspace(-w,w,num=self.N_z)
 
+        self.x_cells = (self.x_grid[0:-1] + self.x_grid[1:])/2.
+        self.y_cells = self.x_cells.copy()
+        self.z_cells = (self.z_grid[0:-1] + self.z_grid[1:])/2.
 
-#        self.grid = np.empty((self.N_r,self.N_theta,self.N_phi,3))
-#        for i in range(self.N_r):
-#            for j in range(self.N_theta):
-#                for k in range(self.N_phi):
-#                    self.grid[i,j,k] = np.array([self.r_grid[i],self.theta_grid[j],self.phi_grid[k]])
-
-        self.r_cells = np.logspace(np.log10(np.average(self.r_grid[0:2])),np.log10(np.average(self.r_grid[-2:])),num=self.N_r-1)
-        self.theta_cells = np.linspace(np.average(self.theta_grid[0:2]),np.average(self.theta_grid[-2:]),num=self.N_theta-1)
-        self.phi_cells = np.linspace(np.average(self.phi_grid[0:2]),np.average(self.phi_grid[-2:]),num=self.N_phi-1)
-
-        self.cells = np.empty((self.N_r-1,self.N_theta-1,self.N_phi-1,3))
-        for i in range(self.N_r-1):
-            for j in range(self.N_theta-1):
-                for k in range(self.N_phi-1):
-                    self.cells[i,j,k] = np.array([self.r_cells[i],self.theta_cells[j],self.phi_cells[k]])
+        self.cells = np.empty((self.N_xy - 1,self.N_xy - 1,self.N_z - 1,3))
+        for i in range(self.N_xy - 1):
+            for j in range(self.N_xy-1):
+                for k in range(self.N_z-1):
+                    self.cells[i,j,k] = np.array([self.x_cells[i],self.y_cells[j],self.z_cells[k]])
 
     def spher_to_cart(self):
         pos = self.cells.reshape(((self.N_r -1)*(self.N_theta-1)*(self.N_phi-1),3))
