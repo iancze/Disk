@@ -26,7 +26,7 @@ disk_params = {"M_star":2.6 * const.M_sun,
 "q": 0.5, 
 "Sigma0": 90., #g/cm^2
 "p":0.6}
-orn_params = {"theta":90. * np.pi/180.,
+orn_params = {"theta":45. * np.pi/180.,
         "distance":150. * const.pc}
 img_width = 2. #arcseconds
 img_height = 2. #arcseconds
@@ -101,7 +101,9 @@ def main():
     np.set_printoptions(threshold=1e4)
     mod1 = Model(0,"13CO",disk_params,orn_params)
     nu = mod1.center_frequency(0.0)
-    los = geometry.LineOfSight(mod1,mod1.orientation,1.0,1.0,nu)
+    los = geometry.LineOfSight(mod1,mod1.orientation,0.0,3.0,nu)
+    #los.plot_spher_vs_s()
+    los.walk_along_grid()
     #print(los.integrate())
     #nu_off = mod1.center_frequency(0.0)
     #mod1.generate_images(nu)

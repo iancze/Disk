@@ -75,7 +75,7 @@ class LineOfSight:
         self.tau = np.vectorize(self.tau_general) #vectorized tau function
         self.ss = np.arange(0.,self.s_finish,0.1*const.AU)
         self.grid = self.model.grid
-        self.walk_along_grid()
+        #self.walk_along_grid()
 
     def calc_y0_z0(self):
         '''Given the inital geometry via the Orientation object, calculate y0, z0, yf, zf, and s_finish.'''
@@ -108,39 +108,114 @@ class LineOfSight:
         phi_grid = self.grid.phi_grid
 
         #Define initial starting points
+        s_total = 0.
         r0 = self.r_mid(0.)
         theta0 = self.theta(0.)
         phi0 = self.phi(0.)
+        r_step = -1
+        theta_step = -1
+        phi_step = -1
         #Define initial indices
-        i0 = np.max(np.where(r0 > r_grid)[0])
-        j0 = np.max(np.where(theta0 > theta_grid)[0])
-        k0 = np.max(np.where(phi0 > phi_grid)[0])
+        self.i = np.max(np.where(r0 > r_grid)[0])
+        self.j = np.max(np.where(theta0 > theta_grid)[0])
+        self.k = np.max(np.where(phi0 > phi_grid)[0])
+        #Starting cell.
+        print("i:%i; j:%i; k:%i" % (self.i,self.j,self.k))
+    
+        r_high = lambda s,i: self.r_mid(s) - r_grid[i+1]
+        r_low = lambda s,i: self.r_mid(s) - r_grid[i]
 
-        s_test = np.average(r_grid[i0:i0+2])
-        r_low = lambda s: self.r_mid(s) - r_grid[i0]
-        ds_low = fsolve(r_low,s_test)[0]
-        print(ds_low)
-        r_high = lambda s: r_grid[i0+1] - self.r_mid(s)
-        ds_high = fsolve(r_high,s_test)[0]
-        print(ds_high)
 
-        theta_low = lambda s: self.theta(s) - theta_grid[j0]
-        dtheta_low = fsolve(theta_low,0.1*const.AU)[0]
-        print(dtheta_low)
+        theta_high = lambda s,j: self.theta(s)- theta_grid[j+1]
+        theta_low = lambda s,j: self.theta(s) - theta_grid[j]
 
-        theta_high = lambda s: theta_grid[j0+1] - self.theta(s)
-        dtheta_high = fsolve(theta_high,0.1*const.AU)[0]
-        print(dtheta_high)
 
-        phi_low = lambda s: self.phi(s) - phi_grid[k0]
-        dphi_low = fsolve(phi_low,0.1*const.AU)[0]
-        print(dphi_low)
+        phi_high = lambda s,k: self.phi(s)- phi_grid[k+1]
+        phi_low = lambda s,k: self.phi(s) - phi_grid[k]
 
-        phi_high = lambda s: phi_grid[k0+1] - self.phi(s)
-        dphi_high = fsolve(phi_high,0.1*const.AU)[0]
-        print(dphi_high)
 
-        #step forward in s till meet R_grid[i+1 or i-1], Theta[i+1 or i-1], or Phi[i+1 or i-1]
+        def sfsolve(func,guess,params):
+            answer, out_dict, flag, msg = fsolve(func,guess,params,full_output=True)
+            if flag != 1:
+                return -1.
+            else:
+                return answer[0]
+
+        #while s_total < self.s_finish:
+        for x in range(3):
+            s_delta = np.average(r_grid[self.i-1:self.i+1])
+            print("s_delta: %.2e" % s_delta)
+            s_test = s_total + s_delta
+            print("s_test: %.2e" % s_test)
+
+            if self.y(s_total) > 0:
+                r_step = sfsolve(r_low,s_test,(self.i))
+            else:
+                r_step = sfsolve(r_high,s_test,(self.i))
+
+            theta_plus = sfsolve(theta_high,s_test,(self.j))
+            theta_minus = sfsolve(theta_low,s_test,(self.j))
+
+            if self.x(s_total) > 0:
+                phi_step = sfsolve(phi_low,s_test,(self.k))
+            else:
+                phi_step = sfsolve(phi_high,s_test,(self.k))
+
+            step_sizes = np.array([r_step,theta_plus,theta_minus,phi_step]) - s_total
+            above_zero = np.where(step_sizes > 0)[0]
+            min_ind = np.argmin(step_sizes[above_zero])
+            step_index = above_zero[min_ind]
+            print(step_sizes)
+            #print(step_index)
+            ds = step_sizes[step_index]
+            s_total = s_total + ds
+            print("step size: %.2e" % ds)
+
+            if step_index == 0:
+                print("Stepping up in r")
+                if self.i < len(r_grid) - 1:
+                    self.i = self.i + 1
+
+            elif step_index == 1:
+                print("Stepping down in r")
+                if self.i > 0:
+                    self.i = self.i - 1
+
+            elif step_index == 2:
+                print("Stepping up in theta")
+                self.j = self.j + 1
+
+            elif step_index == 3:
+                print("Stepping down in theta")
+                self.j = self.j - 1
+
+            elif step_index == 4:
+                print("Stepping up in phi")
+                self.k = self.k + 1
+
+            elif step_index == 5:
+                print("Stepping down in phi")
+                self.k = self.k - 1
+
+            print("i:%i; j:%i; k:%i" % (self.i,self.j,self.k))
+            print("s_total: %.2e" % s_total)
+            print()
+
+    def plot_spher_vs_s(self):
+        fig = plt.figure()
+        ss = np.linspace(0,self.s_finish)
+        ax1 = fig.add_subplot(311)
+        r_mids = self.r_mid(ss)
+        ax1.semilogy(ss/const.AU,r_mids)
+
+        ax2 = fig.add_subplot(312)
+        thetas = self.theta(ss)
+        ax2.plot(ss/const.AU,thetas)
+
+        ax3 = fig.add_subplot(313)
+        phis = self.phi(ss)
+        ax3.plot(ss/const.AU,phis)
+        plt.show()
 
     def x(self,s):
         return self.x0 * np.ones_like(s)
@@ -339,6 +414,7 @@ class Grid:
         self.r_grid = np.logspace(np.log10(self.r_min),np.log10(self.r_max),num=self.N_r)
         self.theta_grid = np.linspace(self.theta_min,self.theta_max,num=self.N_theta)
         self.phi_grid = np.linspace(0,2*np.pi,num=self.N_phi)
+
 
 #        self.grid = np.empty((self.N_r,self.N_theta,self.N_phi,3))
 #        for i in range(self.N_r):
