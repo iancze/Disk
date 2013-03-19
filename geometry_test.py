@@ -84,7 +84,9 @@ def main():
     #    test_path_length(deg)
     #test_path_length(50.)
     #test_polar(50.)
-    test_coords(50.)
+    #test_coords(50.)
+    global grid
+    grid = g.Grid()
     pass
 
 if __name__=="__main__":
