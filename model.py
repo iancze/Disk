@@ -26,10 +26,11 @@ disk_params = {"M_star":2.6 * const.M_sun,
 "q": 0.5, 
 "Sigma0": 90., #g/cm^2
 "p":0.6}
-orn_params = {"theta":np.pi/4.,
+orn_params = {"theta":90. * np.pi/180.,
         "distance":150. * const.pc}
 img_width = 2. #arcseconds
 img_height = 2. #arcseconds
+res_elements = 4.
 
 class Model:
     '''General Container class to generate a model for a given set of parameters. The parameters are:
@@ -59,8 +60,8 @@ class Model:
     def generate_images(self,nu):
         '''Create an appropriately-spaced array of line of sights'''
         #Create a grid of alpha, delta, based upon a resolution parameter and a range
-        alphas = np.linspace(-img_width/2.,img_width/2,20)
-        deltas = np.linspace(-img_height/2.,img_height/2,20)
+        alphas = np.linspace(-img_width/2.,img_width/2,res_elements)
+        deltas = np.linspace(-img_height/2.,img_height/2,res_elements)
         alpha_grid, delta_grid = np.meshgrid(alphas, deltas)
         np.save("alpha.npy", alpha_grid)
         np.save("delta.npy", delta_grid)
@@ -74,7 +75,7 @@ class Model:
                 intensity_array[i][j] = los.integrate()
 
         intensity_array = np.array(intensity_array)
-        np.save("img45_2kms.npy",intensity_array)
+        np.save("img{theta:.0f}.npy".format(theta=orn_params["theta"]*180./np.pi),intensity_array)
         #LoS.plot_K_nu()
         #LoS.plot_tau()
         #LoS.plot_S()
@@ -96,9 +97,13 @@ class Model:
         return self.nu0 * velocity / const.c + self.nu0
 
 def main():
+    np.set_printoptions(threshold=1e4)
     mod1 = Model(0,"13CO",disk_params,orn_params)
-    nu_off = mod1.center_frequency(2.*const.kms)
-    mod1.generate_images(nu_off)
+    nu = mod1.center_frequency(0.0)
+    los = geometry.LineOfSight(mod1,mod1.orientation,1.0,1.0,nu)
+    print(los.integrate())
+    #nu_off = mod1.center_frequency(0.0)
+    #mod1.generate_images(nu)
    
 if __name__=="__main__":
     main()
