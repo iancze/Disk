@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 from scipy.integrate import quad
 from scipy.optimize import fsolve
 
-#Testing whether the geometry is correct in determining starting positions on the box.
-
 #Box is total width (in z direction) of 2w and total length (in y direction) of 2l
 global w,l
 w = 200. * const.AU
@@ -57,7 +55,7 @@ class Orientation:
         slope = {slope:.2f}""".format(theta=self.theta,theta_deg=(self.theta * 180./np.pi),theta_c_deg=(self.theta_c * 180./np.pi),theta_c=self.theta_c,delta_c=self.delta_c,delta_high=self.delta_limit,delta_low=(-1.*self.delta_limit),slope=self.slope)
 
 class LineOfSight:
-    def __init__(self,model,orientation,delta,alpha,nu):
+    def __init__(self,model,orientation,alpha,delta):
         '''alpha_phys and delta_phys are the actual projected distances at the location of the disk.'''
         self.model = model #Link to the model
         self.orn = orientation #Link to the orientation object
@@ -67,14 +65,10 @@ class LineOfSight:
         self.delta_phys = self.delta * self.orn.distance * (const.AU/const.pc)
         self.x0 = self.alpha_phys
         self.xf = self.x0
-        self.nu = nu
-        self.k_nu = rad.k_nu(self.nu,self.model.beta)
         self.calc_y0_z0()
         self.disk = self.orn.model.disk
-        self.tau = np.vectorize(self.tau_general) #vectorized tau function
         self.ss = np.arange(0.,self.s_finish,0.1*const.AU)
         self.grid = self.model.grid
-        #self.walk_along_grid()
 
     def calc_y0_z0(self):
         '''Given the inital geometry via the Orientation object, calculate y0, z0, yf, zf, and s_finish.'''
@@ -101,7 +95,7 @@ class LineOfSight:
                 self.zf = -w
         self.s_finish = (self.y0 - self.yf)/np.sin(self.orn.theta)
 
-    def walk_along_grid(self):
+    def integrate(self):
         x_grid = self.grid.x_grid
         y_grid = self.grid.y_grid
         z_grid = self.grid.z_grid
@@ -111,39 +105,45 @@ class LineOfSight:
         self.j = np.max(np.where(self.y0 > y_grid)[0])
         self.k = np.max(np.where(self.z0 > z_grid)[0])
 
-        print("i0:%i; j0:%i; k0:%i" % (self.i,self.j,self.k))
-        print()
-
         s_total = 0.
+        tau_total = 0.
+        I_total = 0.
 
         #move to first wall boundary
         guess_y = (y_grid[1] - y_grid[0])/2.
         guess_z = (z_grid[1] - z_grid[0])/2.
         y_func = lambda s,j: self.y(s) - y_grid[j]
         z_func = lambda s,k: self.z(s) - z_grid[k]
-        j_track = []
-        k_track = []
 
         while(s_total < self.s_finish and self.j >= 0 and self.k >= 0):
-            j_track.append(self.j)
-            k_track.append(self.k)
-            s_max_y = fsolve(y_func,s_total + guess_y,(self.j))[0]
-            s_max_z = fsolve(z_func,s_total + guess_z,(self.k))[0]
+            K = self.grid.K[self.i,self.j,self.k]
+            S = self.grid.S[self.i,self.j,self.k]
+
+            s_max_y,info_dict,flag_y,msg = fsolve(y_func,s_total + guess_y,(self.j),full_output=True)
+            s_max_z,info_dict,flag_z,msg = fsolve(z_func,s_total + guess_z,(self.k),full_output=True)
+            s_max_y = s_max_y[0]
+            s_max_z = s_max_z[0]
+#            if flag_y != 1:
+#                print("Not converged y",self.j,self.k)
+#            if flag_z != 1:
+#                print("Not converged z",self.j,self.k)
             if s_max_y < s_max_z:
+                ds = s_max_y - s_total
                 s_total = s_max_y
                 self.j = self.j - 1
             else:
+                ds = s_max_z - s_total
                 s_total = s_max_z
                 self.k = self.k - 1
 
-            print(s_max_y,s_max_z)
-            print("j:%i; k:%i" % (self.j,self.k))
-            print("Complete: %.2f" % (s_total/self.s_finish))
-            print()
-        js = np.array(j_track)
-        ks = np.array(k_track)
-        plt.plot(y_grid[js]/const.AU,z_grid[ks]/const.AU,"o")
-        plt.show()
+            delta_tau = K * ds
+            delta_I = K * S * np.exp(-tau_total) * ds
+            I_total = I_total + delta_I
+            tau_total = tau_total + delta_tau
+            
+        #print("tau_total: %.2f" % tau_total)
+        #print("I_total: %.2e" % I_total)
+        return I_total
 
     def plot_los(self):
         ss = np.linspace(0,self.s_finish)
@@ -160,33 +160,6 @@ class LineOfSight:
 
     def z(self,s):
         return self.z0 - s * np.cos(self.orn.theta)
-
-    def cartesian(self,s):
-        x = self.x0 * np.ones_like(s)
-        y = self.y0 - s * np.sin(self.orn.theta)
-        z = self.z0 - s * np.cos(self.orn.theta)
-        return np.array([x,y,z])
-
-    def polar(self,s):
-        x = self.x0 * np.ones_like(s)
-        y = self.y0 - s * np.sin(self.orn.theta)
-        z = self.z0 - s * np.cos(self.orn.theta)
-        r = np.sqrt(x**2. + y**2.)
-        phi = np.arctan2(y,x)
-        return np.array([r,z,phi])
-
-    def coords(self,s):
-        '''Function to return Cartesian and Cyclindrical Corods'''
-        x = self.x0 * np.ones_like(s)
-        y = self.y0 - s * np.sin(self.orn.theta)
-        z = self.z0 - s * np.cos(self.orn.theta)
-        r = np.sqrt(x**2. + y**2.)
-        phi = np.arctan2(y,x)
-        return (np.array([x,y,z]),np.array([r,z,phi]))
-
-    def tau_dis(self,s):
-        ind = np.where(self.ss <= s)[0]
-        return np.trapz(self.K_nus[ind],self.ss[ind])
 
     def plot_path(self,ax,fmt="bo"):
         ss = np.linspace(0,self.s_finish,num=10)
@@ -209,98 +182,6 @@ class LineOfSight:
         distance = np.sqrt((self.yf - self.y0)**2 + (self.zf - self.z0)**2)
         print("Distance={distance:.2f} ; s_finish={s_finish:.2f}".format(distance=distance,s_finish=self.s_finish))
 
-    def v_k(self,pol):
-        return self.disk.v_phi(pol[0]) * np.cos(pol[2]) * np.sin(self.orn.theta)
-
-    def K_nu(self,pol,T,rho):
-        Z = np.sqrt(1.0 + ((2. * T)/self.model.T1)**2) #Partition function
-        n_l = self.x0 * rho/const.m0 * self.model.gl * np.exp(-self.model.El/(const.k * T)) / Z
-        K_dust = rho * self.k_nu
-        K_CO = n_l * self.sigma_nu(pol,T)
-        return K_dust + K_CO
-
-    def K_nu_tau(self,s):
-        pol = self.polar(s)
-        T = self.disk.T(pol[0])
-        rho = self.disk.rho(pol[0],pol[1])
-        Z = np.sqrt(1.0 + ((2. * T)/self.model.T1)**2) #Partition function
-        n_l = self.x0 * rho/const.m0 * self.model.gl * np.exp(-self.model.El/(const.k * T)) / Z
-        K_dust = rho * self.k_nu
-        K_CO = n_l * self.sigma_nu(pol,T)
-        return K_dust + K_CO
-
-    def sigma_nu(self,pol,T):
-        return self.model.sigma0 * self.phi_nu(pol,T) * (1. - np.exp(-const.h * self.nu/(const.k * T)))
-
-    def phi_nu(self,pol,T):
-        Delta_V = np.sqrt(2. * const.k * T/const.m_CO +  self.model.vturb**2)
-        v_obs = const.c/self.model.nu0 * (self.nu - self.model.nu0)
-        Delta_v = self.v_k(pol) - v_obs 
-        return const.c/(self.model.nu0 * np.sqrt(np.pi) * Delta_V) * np.exp(-1. * Delta_v**2/Delta_V**2)
-
-    def tau_general(self,s):
-        return quad(self.K_nu_tau,0.0,s)[0]
-
-    def S(self,s):
-        '''Used only for plotting S along line of sight'''
-        car,(r,z,phi) = self.coords(s)
-        T = self.disk.T(r)
-        S = rad.S(T,self.nu)
-        return S
-
-    def dI(self,s):
-        pol = self.polar(s)
-        T = self.disk.T(pol[0])
-        S = rad.S(T,self.nu)
-        rho = self.disk.rho(pol[0],pol[1])
-        K_nu = self.K_nu(pol,T,rho)
-        tau = self.tau(s)
-        return S * np.exp(-tau) * K_nu
-
-    def plot_K_nu(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ss = np.linspace(0,self.s_finish,num=1000)
-        ax.semilogy(ss/const.AU,self.K_nu(ss))
-        ax.set_xlabel(r"$s$ (AU)")
-        ax.set_ylabel(r"$K_\nu(s)\quad[{\rm cm}^{-1}]$")
-        fig.subplots_adjust(left=0.20)
-        fig.savefig("Plots/Test_Rad/k_nu_vs_s.png")
-
-    def plot_tau(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ss = np.linspace(0,self.s_finish,num=100)
-        #func = lambda s: self.tau(s)
-        #func = np.vectorize(func)
-        taus = self.tau(ss)
-        ax.set_xlabel(r"$s$ (AU)")
-        ax.set_ylabel(r"$\tau(s)$")
-        ax.semilogy(ss/const.AU, taus)
-        fig.savefig("Plots/Test_Rad/tau_vs_s.png")
-
-    def plot_S(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ss = np.linspace(0,self.s_finish,num=100)
-        ax.set_xlabel(r"$s$ (AU)")
-        ax.set_ylabel(r"$S_\nu(s)\quad \left[ \frac{{\rm erg}}{{\rm cm}^2\cdot {\rm s\cdot ster\cdot Hz}} \right]$")
-        ax.semilogy(ss/const.AU, self.S(ss)) #requires rad.S
-        fig.subplots_adjust(left=0.20)
-        fig.savefig("Plots/Test_Rad/S_vs_s.png")
-
-    def plot_dI(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ss = np.linspace(0,self.s_finish,num=100)
-        #dIs = np.array([self.dI(i) for i in ss])
-        dIs = self.dI(ss)
-        ax.set_xlabel(r"$s$ (AU)")
-        ax.set_ylabel(r"$dI(s)\quad \left[ \frac{{\rm erg}}{{\rm cm}^3\cdot {\rm s\cdot ster\cdot Hz}} \right] $")
-        ax.semilogy(ss/const.AU,dIs)
-        fig.subplots_adjust(left=0.20)
-        fig.savefig("Plots/Test_Rad/dI_vs_s.png")
-
     def __str__(self):
         return """
         alpha = {alpha:.2f}
@@ -308,10 +189,16 @@ class LineOfSight:
         x0 = {x0:.2f}; y0 = {y0:.2f}; z0 = {z0:.2f}
         xf = {xf:.2f}; yf = {yf:.2f}; zf = {zf:.2f}""".format(alpha=self.alpha,delta=self.delta,x0=self.x0,y0=self.y0,z0=self.z0,xf=self.xf,yf=self.yf,zf=self.zf)
 
+
 class Grid:
-    def __init__(self):
-        self.N_xy = 10
-        self.N_z = 5
+    def __init__(self,model):
+        self.model = model
+        self.N_xy = 100
+        self.N_z = 40
+        self.flat_shape = ((self.N_xy-1)**2 * (self.N_z -1),3)
+        self.full_shape = ((self.N_xy-1),(self.N_xy -1), (self.N_z - 1),3)
+        self.full_shape_one = ((self.N_xy-1),(self.N_xy -1), (self.N_z - 1),1)
+
 
         self.x_grid = np.linspace(-l,l,num=self.N_xy)
         self.y_grid = self.x_grid.copy()
@@ -327,3 +214,20 @@ class Grid:
                 for k in range(self.N_z-1):
                     self.cells[i,j,k] = np.array([self.x_cells[i],self.y_cells[j],self.z_cells[k]])
 
+        self.flat_grid = self.cells.reshape(self.flat_shape)
+        self.polar()
+
+    def polar(self):
+        self.cylin_grid = self.flat_grid.copy()
+        x = self.flat_grid[:,0]
+        y = self.flat_grid[:,1]
+        self.cylin_grid[:,0] = np.sqrt(x**2 + y**2)
+        self.cylin_grid[:,2] = np.arctan2(y,x)
+
+    def calc_S(self):
+        self.model.radiation.S()
+        self.S = self.model.radiation.S_cart
+
+    def calc_K(self):
+        self.model.radiation.K()
+        self.K = self.model.radiation.K_cart
