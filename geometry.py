@@ -112,16 +112,14 @@ class LineOfSight:
         js = []
         ks = []
 
-        #move to first wall boundary
         guess_y = (y_grid[1] - y_grid[0])/2.
         guess_z = (z_grid[1] - z_grid[0])/2.
         y_func = lambda s,j: self.y(s) - y_grid[j]
         z_func = lambda s,k: self.z(s) - z_grid[k]
 
         while(s_total < self.s_finish and self.j >= 0 and self.k >= 0):
-            #K = self.grid.K[self.i,self.j,self.k]
-            #S = self.grid.S[self.i,self.j,self.k]
-
+            K = self.grid.K[self.i,self.j,self.k]
+            S = self.grid.S[self.i,self.j,self.k]
             js.append(self.j)
             ks.append(self.k)
             s_max_y,info_dict,flag_y,msg = fsolve(y_func,s_total + guess_y,(self.j),full_output=True)
@@ -141,43 +139,42 @@ class LineOfSight:
                 s_total = s_max_z
                 self.k = self.k - 1
 
-            #delta_tau = K * ds
-            #delta_I = K * S * np.exp(-tau_total) * ds
-            #I_total = I_total + delta_I
-            #tau_total = tau_total + delta_tau
+            delta_tau = K * ds
+            delta_I = K * S * np.exp(-tau_total) * ds
+            I_total = I_total + delta_I
+            tau_total = tau_total + delta_tau
 
-        js = np.array(js)
-        ks = np.array(ks)
-        
-            
-        y_cells = self.grid.y_cells/const.AU
-        z_cells = self.grid.z_cells/const.AU
-        y_grid = y_grid/const.AU
-        z_grid = z_grid/const.AU
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        ss = np.linspace(0,self.s_finish)
-        ys = self.y(ss)/const.AU
-        zs = self.z(ss)/const.AU
-        ax.plot(ys,zs)
-        for i in y_grid:
-            ax.axvline(i,color="k",ls=":")
-        for i in z_grid:
-            ax.axhline(i,color="k",ls=":")
-        for i in range(len(z_cells)):
-            plt.plot(y_cells,z_cells[i]*np.ones_like(y_cells),"ko")
-        plt.plot(y_grid[js], z_grid[ks],"o")
-        width = y_cells[1] - y_cells[0]
-        height = z_cells[1] - z_cells[0]
-        for i in range(len(y_grid[js])):
-            ax.add_patch(plt.Rectangle((y_grid[js][i],z_grid[ks][i]),width=width,height=height,alpha=0.2))
-        ax.set_xlim(-500,500)
-        ax.set_xlabel("y")
-        ax.set_ylabel("z")
+        def plot_path():
+            js = np.array(js)
+            ks = np.array(ks)
+                
+            y_cells = self.grid.y_cells/const.AU
+            z_cells = self.grid.z_cells/const.AU
+            y_grid = y_grid/const.AU
+            z_grid = z_grid/const.AU
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ss = np.linspace(0,self.s_finish)
+            ys = self.y(ss)/const.AU
+            zs = self.z(ss)/const.AU
+            ax.plot(ys,zs)
+            for i in y_grid:
+                ax.axvline(i,color="k",ls=":")
+            for i in z_grid:
+                ax.axhline(i,color="k",ls=":")
+            for i in range(len(z_cells)):
+                plt.plot(y_cells,z_cells[i]*np.ones_like(y_cells),"ko")
+            plt.plot(y_grid[js], z_grid[ks],"o")
+            width = y_cells[1] - y_cells[0]
+            height = z_cells[1] - z_cells[0]
+            for i in range(len(y_grid[js])):
+                ax.add_patch(plt.Rectangle((y_grid[js][i],z_grid[ks][i]),width=width,height=height,alpha=0.2))
+            ax.set_xlim(-500,500)
+            ax.set_xlabel("y")
+            ax.set_ylabel("z")
+            plt.show()
 
-        plt.show()
-        #print("tau_total: %.2f" % tau_total)
-        #print("I_total: %.2e" % I_total)
+        print("Complete: %.2f" % (s_total/self.s_finish))
         return I_total
 
     def plot_los(self):
@@ -228,8 +225,8 @@ class LineOfSight:
 class Grid:
     def __init__(self,model):
         self.model = model
-        self.N_xy = 10
-        self.N_z = 8
+        self.N_xy = 500
+        self.N_z = 100
         self.flat_shape = ((self.N_xy-1)**2 * (self.N_z -1),3)
         self.full_shape = ((self.N_xy-1),(self.N_xy -1), (self.N_z - 1),3)
         self.full_shape_one = ((self.N_xy-1),(self.N_xy -1), (self.N_z - 1),1)
@@ -256,8 +253,10 @@ class Grid:
         self.cylin_grid = self.flat_grid.copy()
         x = self.flat_grid[:,0]
         y = self.flat_grid[:,1]
-        self.cylin_grid[:,0] = np.sqrt(x**2 + y**2)
-        self.cylin_grid[:,2] = np.arctan2(y,x)
+        z = self.flat_grid[:,2]
+        self.cylin_grid[:,0] = np.sqrt(x**2 + y**2) #r
+        self.cylin_grid[:,1] = z                    #z
+        self.cylin_grid[:,2] = np.arctan2(y,x)      #phi
 
     def plot_flat_grid(self):
         from mpl_toolkits.mplot3d import Axes3D

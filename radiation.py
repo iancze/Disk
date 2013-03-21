@@ -11,7 +11,6 @@ class Radiation:
     def __init__(self,model,delta_v):
         self.model = model
         self.nu = self.model.center_frequency(delta_v)
-        print("nu",self.nu)
         self.k_nu = k_nu(self.nu,self.model.beta)
 
     def S(self):

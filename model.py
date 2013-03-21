@@ -26,12 +26,12 @@ disk_params = {"M_star":2.6 * const.M_sun,
 "q": 0.5, 
 "Sigma0": 90., #g/cm^2
 "p":0.6}
-orn_params = {"theta":90. * np.pi/180.,
+orn_params = {"theta":45. * np.pi/180.,
         "distance":150. * const.pc}
 rad_params = {"delta_v":3*const.kms}
-img_width = 2. #arcseconds
-img_height = 2. #arcseconds
-res_elements = 30.
+img_width = 1. #arcseconds
+img_height = 1. #arcseconds
+res_elements = 20.
 
 class Model:
     '''General Container class to generate a model for a given set of parameters. The parameters are:
@@ -108,6 +108,8 @@ class Model:
 
 def test_grid_walker():
     mod1 = Model(0,"13CO",disk_params,orn_params,rad_params)
+    mod1.grid.calc_S()
+    mod1.grid.calc_K()
     los = geometry.LineOfSight(mod1,mod1.orientation,0.0,1.0)
     los.integrate()
 
@@ -118,10 +120,10 @@ def test_grid():
 def main():
     np.set_printoptions(threshold=1e4)
     #test_grid_walker()
-    test_grid()
-    #mod1 = Model(0,"13CO",disk_params,orn_params,rad_params)
-    #mod1.grid.calc_S()
-    #mod1.grid.calc_K()
+    #test_grid()
+    mod1 = Model(0,"13CO",disk_params,orn_params,rad_params)
+    mod1.grid.calc_S()
+    mod1.grid.calc_K()
     #nu = mod1.center_frequency(0.0)
     #los = geometry.LineOfSight(mod1,mod1.orientation,0.0,0.0)
     #los.plot_spher_vs_s()
@@ -129,7 +131,7 @@ def main():
     #los.walk_along_grid()
     #print(los.integrate())
     #nu_off = mod1.center_frequency(0.0)
-    #mod1.generate_images()
+    mod1.generate_images()
    
 if __name__=="__main__":
     main()
