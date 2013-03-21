@@ -9,8 +9,8 @@ from scipy.optimize import fsolve
 
 #Box is total width (in z direction) of 2w and total length (in y direction) of 2l
 global w,l
-w = 200. * const.AU
-l = 500. * const.AU
+w = 100. * const.AU
+l = 250. * const.AU
 
 class Orientation:
     def __init__(self,model,theta,distance):
@@ -174,7 +174,7 @@ class LineOfSight:
             ax.set_ylabel("z")
             plt.show()
 
-        print("Complete: %.2f" % (s_total/self.s_finish))
+        #print("Complete: %.2f" % (s_total/self.s_finish))
         return I_total
 
     def plot_los(self):
@@ -221,11 +221,30 @@ class LineOfSight:
         x0 = {x0:.2f}; y0 = {y0:.2f}; z0 = {z0:.2f}
         xf = {xf:.2f}; yf = {yf:.2f}; zf = {zf:.2f}""".format(alpha=self.alpha,delta=self.delta,x0=self.x0,y0=self.y0,z0=self.z0,xf=self.xf,yf=self.yf,zf=self.zf)
 
+def generate_grid():
+    N_xy = 250
+    N_z = 100
+
+    x_grid = np.linspace(-l,l,num=N_xy)
+    y_grid = x_grid.copy()
+    z_grid = np.linspace(-w,w,num=N_z)
+
+    x_cells = (x_grid[0:-1] + x_grid[1:])/2.
+    y_cells = x_cells.copy()
+    z_cells = (z_grid[0:-1] + z_grid[1:])/2.
+
+    cells = np.empty((N_xy - 1,N_xy - 1,N_z - 1,3))
+    for i in range(N_xy - 1):
+        for j in range(N_xy-1):
+            for k in range(N_z-1):
+                cells[i,j,k] = np.array([x_cells[i],y_cells[j],z_cells[k]])
+    np.save("grid.npy", cells)
+
 
 class Grid:
     def __init__(self,model):
         self.model = model
-        self.N_xy = 500
+        self.N_xy = 250
         self.N_z = 100
         self.flat_shape = ((self.N_xy-1)**2 * (self.N_z -1),3)
         self.full_shape = ((self.N_xy-1),(self.N_xy -1), (self.N_z - 1),3)
@@ -240,14 +259,12 @@ class Grid:
         self.y_cells = self.x_cells.copy()
         self.z_cells = (self.z_grid[0:-1] + self.z_grid[1:])/2.
 
-        self.cells = np.empty((self.N_xy - 1,self.N_xy - 1,self.N_z - 1,3))
-        for i in range(self.N_xy - 1):
-            for j in range(self.N_xy-1):
-                for k in range(self.N_z-1):
-                    self.cells[i,j,k] = np.array([self.x_cells[i],self.y_cells[j],self.z_cells[k]])
-
+        self.cells = np.load("grid.npy")
+        print("Done loading grid")
         self.flat_grid = self.cells.reshape(self.flat_shape)
+        print("Done flat grid")
         self.polar()
+        print("Done pol grid")
 
     def polar(self):
         self.cylin_grid = self.flat_grid.copy()
@@ -271,10 +288,49 @@ class Grid:
         ax.set_zlabel("Z")
         plt.show()
 
-    def calc_S(self):
-        self.model.radiation.S()
-        self.S = self.model.radiation.S_cart
+    def calc_S_and_K(self):
+        rs = self.model.grid.cylin_grid[:,0]
+        zs = self.model.grid.cylin_grid[:,1]
+        phis = self.model.grid.cylin_grid[:,2]
+        nu = self.model.nu
 
-    def calc_K(self):
-        self.model.radiation.K()
-        self.K = self.model.radiation.K_cart
+        ind_no = np.where(rs < self.model.disk.r_in)[0]
+        ind_yes = np.where(rs >= self.model.disk.r_in)[0]
+
+        r = rs[ind_yes]
+        z = zs[ind_yes]
+        phi = phis[ind_yes]
+        theta = self.model.orientation.theta
+
+        T = self.model.disk.T(r) 
+        S = 2. * const.h * self.model.nu**3 / const.c**2 / (np.exp(const.h * nu / (const.k * T)) - 1.0)
+        S_full = np.zeros_like(rs)
+        S_full[ind_yes] = S
+        #Reshape into cartesian grid
+        self.S = S_full.reshape(self.full_shape_one)
+
+        rho = self.model.disk.rho(r,z)
+        K_dust = rho * self.model.k_nu
+
+        Z = np.sqrt(1.0 + ((2. * T)/self.model.T1)**2) 
+        n_l = self.model.x0 * rho/const.m0 * self.model.gl * np.exp(-self.model.El/(const.k * T)) / Z
+
+        Delta_V = np.sqrt(2. * const.k * T/const.m_CO)
+        v_obs = const.c/self.model.nu0 * (nu - self.model.nu0)
+        v_k = self.model.disk.v_phi(r) * np.cos(phi) * np.sin(theta)
+        Delta_v = v_k - v_obs 
+        phi_nu = const.c/(self.model.nu0 * np.sqrt(np.pi) * Delta_V) * np.exp(-1. * Delta_v**2/Delta_V**2)
+        sigma_nu = self.model.sigma0 * phi_nu * (1. - np.exp(-const.h * nu/(const.k * T)))
+
+        K_CO = n_l * sigma_nu
+        K = K_dust + K_CO
+        K_full = np.zeros_like(rs)
+        K_full[ind_yes] = K
+        #Reshape into cartesian grid
+        self.K = K_full.reshape(self.full_shape_one)
+
+def main():
+    generate_grid()
+
+if __name__=="__main__":
+    main()

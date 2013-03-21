@@ -26,12 +26,11 @@ disk_params = {"M_star":2.6 * const.M_sun,
 "q": 0.5, 
 "Sigma0": 90., #g/cm^2
 "p":0.6}
-orn_params = {"theta":45. * np.pi/180.,
+orn_params = {"theta":90. * np.pi/180.,
         "distance":150. * const.pc}
-rad_params = {"delta_v":3*const.kms}
 img_width = 1. #arcseconds
 img_height = 1. #arcseconds
-res_elements = 20.
+res_elements = 75.
 
 class Model:
     '''General Container class to generate a model for a given set of parameters. The parameters are:
@@ -47,7 +46,7 @@ class Model:
         * For a species/transition
             * l
             * species ('12CO','13CO') '''
-    def __init__(self,l,species,disk_params,orn_params,rad_params):
+    def __init__(self,l,species,disk_params,orn_params,delta_v):
         '''disk_params is a dictionary of disk parameters'''
         self.distance = 150. * const.pc #distance to the disk from earth
         self.l = l
@@ -57,41 +56,30 @@ class Model:
         self.set_species_constants()
         self.disk = disk.Disk(self,**disk_params)
         self.orientation = geometry.Orientation(self,**orn_params)
-        self.radiation = radiation.Radiation(self,**rad_params)
+        self.nu = self.center_frequency(delta_v)
+        self.k_nu = radiation.k_nu(self.nu,self.beta)
+        print("Generating Grid")
         self.grid = geometry.Grid(self)
 
-    def generate_images(self):
+    def generate_images(self,fname):
         '''Create an appropriately-spaced array of line of sights'''
         #Create a grid of alpha, delta, based upon a resolution parameter and a range
         alphas = np.linspace(-img_width/2.,img_width/2,res_elements)
         deltas = np.linspace(-img_height/2.,img_height/2,res_elements)
-        print(alphas)
-        print(deltas)
         intensity_array = np.zeros((res_elements,res_elements))
         #intensity_array = np.zeros_like(alphas)
-        for i in range(len(alphas)):
+        AA,DD = np.meshgrid(alphas,deltas)
+        np.save("alpha.npy",AA)
+        np.save("delta.npy",DD)
+        print("Saved coord grid")
+        la = len(alphas)
+        for i in range(la):
             for j in range(len(deltas)):
                 los = geometry.LineOfSight(self,self.orientation,alphas[i],deltas[j])
                 intensity_array[i,j] = los.integrate()
-                print(i,j)
-
-        #print(alphas,intensity_array)
-
-        #plt.plot(alphas,intensity_array)
-        #plt.show()
-        #alpha_grid, delta_grid = np.meshgrid(alphas, deltas)
-        #np.save("alpha.npy", alpha_grid)
-        #np.save("delta.npy", delta_grid)
-        #for each (alpha,delta) pair, create a LoS, integrate, and return a value
-        #do this for each nu within a range which will be the channel map
-        #Right now do this for (alpha,delta) = (0.0,0.0)
-        #intensity_array = np.zeros_like(alpha_grid)
-        #for i in range(len(alpha_grid)):
-        #    for j in range(len(delta_grid)):
-        #        los = geometry.LineOfSight(self,self.orientation,alpha_grid[i][j],delta_grid[i][j])
-        #        intensity_array[i][j] = los.integrate()
-
-        np.save("img{theta:.0f}.npy".format(theta=orn_params["theta"]*180./np.pi),intensity_array)
+            print("%.2f" % ((1.0*i)/la))
+        #np.save("img{theta:.0f}.npy".format(theta=orn_params["theta"]*180./np.pi),intensity_array)
+        np.save(fname,intensity_array)
 
     def set_species_constants(self):
         self.x0 = x0_dict[self.species]
@@ -118,12 +106,18 @@ def test_grid():
     mod1.grid.plot_flat_grid()
 
 def main():
-    np.set_printoptions(threshold=1e4)
     #test_grid_walker()
     #test_grid()
-    mod1 = Model(0,"13CO",disk_params,orn_params,rad_params)
-    mod1.grid.calc_S()
-    mod1.grid.calc_K()
+    #names = ["img_45__2.npy","img_45_0.npy","img_45_2.npy","img_45_4.npy"]
+    names = ["img_90__2.npy","img_90_0.npy","img_90_2.npy","img_90_4.npy"]
+    rad_list = [-2*const.kms, 0.0,2*const.kms,4*const.kms]
+    for i in range(len(names)):
+        print(names[i])
+        mod1 = Model(0,"13CO",disk_params,orn_params,delta_v=rad_list[i])
+        print("Calculating grid")
+        mod1.grid.calc_S_and_K()
+        print("Starting Integration")
+        mod1.generate_images(names[i])
     #nu = mod1.center_frequency(0.0)
     #los = geometry.LineOfSight(mod1,mod1.orientation,0.0,0.0)
     #los.plot_spher_vs_s()
@@ -131,7 +125,6 @@ def main():
     #los.walk_along_grid()
     #print(los.integrate())
     #nu_off = mod1.center_frequency(0.0)
-    mod1.generate_images()
    
 if __name__=="__main__":
     main()
